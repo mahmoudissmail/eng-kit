@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Python ${{ matrix.python }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        include:
+          - os: macos-latest
+            python: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: git config --global user.email ci@example.com && git config --global user.name ci
+      - run: python -m unittest discover -s plugins/eng-kit/tests -v
+
+  validate:
+    name: Plugin and marketplace validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install -g @anthropic-ai/claude-code
+      - run: claude plugin validate ./plugins/eng-kit --strict
+      - run: claude plugin validate . --strict
+      - name: JSON files parse
+        run: |
+          for f in .claude-plugin/marketplace.json plugins/eng-kit/.claude-plugin/plugin.json plugins/eng-kit/hooks/hooks.json; do
+            python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f"
+          done

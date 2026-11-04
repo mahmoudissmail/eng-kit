@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites><testsuite name="pytest" errors="1" failures="0" skipped="1" tests="4" time="3.2" timestamp="2026-11-01T10:00:00">
+<testcase classname="tests.test_orders" name="test_create" time="1.200"/>
+<testcase classname="tests.test_orders" name="test_cancel" time="0.300"><skipped type="pytest.skip" message="later"/></testcase>
+<testcase classname="tests.test_sync" name="test_retry" time="1.600"><error message="boom">trace</error></testcase>
+<testcase classname="tests.test_sync" name="test_ok" time="0.100"/>
+</testsuite></testsuites>

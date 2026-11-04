@@ -1,0 +1,77 @@
+# eng-kit template: Laravel full suite on every pull request (and nightly in random order).
+# Save as .github/workflows/tests.yml. For your own runner, change runs-on to [self-hosted, linux]
+# (the machine needs Docker for the MySQL service). Never use a self-hosted runner on a public repository.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 0 * * *"                 # nightly, UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true              # a new push cancels the old run
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest              # or: [self-hosted, linux]
+    timeout-minutes: 45
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: testing
+        ports: ["3306:3306"]
+        # Data in RAM and a health check before the tests start.
+        options: >-
+          --tmpfs /var/lib/mysql:rw
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_DATABASE: testing
+      DB_USERNAME: root
+      DB_PASSWORD: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_mysql, intl, bcmath
+          coverage: none                # no Xdebug: much faster
+          ini-values: memory_limit=1G
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+      - run: composer install --no-interaction --no-progress --prefer-dist
+      - run: cp .env.example .env && php artisan key:generate --force -q
+      - run: npm ci --no-audit --no-fund && npm run build
+      - name: Full suite
+        if: github.event_name != 'schedule'
+        run: php artisan test --parallel --recreate-databases --log-junit junit.xml
+      - name: Full suite in random order (nightly)
+        if: github.event_name == 'schedule'
+        run: |
+          echo "Random order seed: ${{ github.run_id }}"
+          php artisan test --parallel --recreate-databases --order-by=random --random-order-seed=${{ github.run_id }} --log-junit junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit                   # eng-kit import-ci reads this artifact
+          path: junit.xml
+          retention-days: 14

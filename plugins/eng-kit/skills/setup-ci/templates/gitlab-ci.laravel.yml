@@ -1,0 +1,97 @@
+# eng-kit template: Laravel full suite on every merge request, on your own project runner.
+# Replace <runner-tag> with your runner's tag. Pin images by digest in production use.
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible          # a new push cancels the old pipeline
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+stages: [fast, tests]
+
+variables:
+  CI_IMAGE: lorisleiva/laravel-docker:latest   # PHP + Composer + Node; pin a digest
+  MYSQL_IMAGE: mysql:8.4
+  COMPOSER_CACHE_DIR: "$CI_PROJECT_DIR/.cache/composer"
+  npm_config_cache: "$CI_PROJECT_DIR/.cache/npm"
+  APP_ENV: testing
+  DB_CONNECTION: mysql
+  DB_HOST: mysql
+  DB_PORT: "3306"
+  DB_DATABASE: testing
+  DB_USERNAME: root
+  DB_PASSWORD: ""
+  MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+  MYSQL_DATABASE: testing
+
+default:
+  image: $CI_IMAGE
+  interruptible: true
+  tags: [<runner-tag>]                     # only your runner; never shared minutes
+
+.composer-cache: &composer-cache
+  key: { files: [composer.lock], prefix: composer }
+  paths: [.cache/composer, vendor/]
+
+.npm-cache: &npm-cache
+  key: { files: [package-lock.json], prefix: npm }
+  paths: [.cache/npm]
+
+.php-app:
+  services:
+    - name: $MYSQL_IMAGE
+      alias: mysql
+      # Throw-away test database: no fsync per commit, no binary log.
+      command: ["--innodb-flush-log-at-trx-commit=0", "--sync-binlog=0", "--skip-log-bin", "--innodb-doublewrite=0"]
+  before_script:
+    - echo 'memory_limit = 1G' > "$(php -r 'echo PHP_CONFIG_FILE_SCAN_DIR;')/zz-ci-memory.ini"
+    - cp .env.example .env
+    - composer install --no-interaction --no-progress --prefer-dist
+    - php artisan key:generate --force -q
+
+lint:
+  stage: fast
+  cache: { <<: *composer-cache }
+  script:
+    - composer install --no-interaction --no-progress --prefer-dist --no-scripts
+    - vendor/bin/pint --test
+
+tests:
+  stage: tests
+  extends: .php-app
+  needs: [lint]
+  timeout: 45m
+  rules:
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+  cache:
+    - { <<: *composer-cache, policy: pull }
+    - { <<: *npm-cache, policy: pull }
+  script:
+    - npm ci --no-audit --no-fund
+    - npm run build
+    - php artisan test --parallel --recreate-databases --log-junit junit.xml
+  artifacts:
+    when: always
+    reports: { junit: junit.xml }       # eng-kit import-ci reads this
+    expire_in: 14 days
+
+tests-random-order:
+  stage: tests
+  extends: .php-app
+  needs: []
+  timeout: 45m
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  cache:
+    - { <<: *composer-cache, policy: pull }
+    - { <<: *npm-cache, policy: pull }
+  script:
+    - npm ci --no-audit --no-fund
+    - npm run build
+    - 'echo "Random order seed: $CI_PIPELINE_ID"'
+    - php artisan test --parallel --recreate-databases --order-by=random --random-order-seed=$CI_PIPELINE_ID --log-junit junit.xml
+  artifacts:
+    when: always
+    reports: { junit: junit.xml }
+    expire_in: 14 days

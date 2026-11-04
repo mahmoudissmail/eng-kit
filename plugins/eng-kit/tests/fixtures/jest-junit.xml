@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="3" failures="0" errors="0" time="2.41">
+  <testsuite name="cart" errors="0" failures="0" skipped="0" timestamp="2026-11-01T10:00:00" time="1.9" tests="2">
+    <testcase classname="cart adds an item" name="cart adds an item" time="1.5"></testcase>
+    <testcase classname="cart removes an item" name="cart removes an item" time="0.4"></testcase>
+  </testsuite>
+  <testsuite name="price" errors="0" failures="0" skipped="0" timestamp="2026-11-01T10:00:02" time="0.51" tests="1">
+    <testcase classname="price formats LBP" name="price formats LBP" time="0.51"></testcase>
+  </testsuite>
+</testsuites>

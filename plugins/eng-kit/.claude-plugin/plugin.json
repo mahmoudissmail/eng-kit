@@ -1,0 +1,27 @@
+{
+  "name": "eng-kit",
+  "displayName": "eng-kit \u2014 test speed",
+  "version": "1.0.0",
+  "description": "Local, per-project test-speed tracking and optimization for Claude Code: records every full test run (automatically when Claude runs the suite), compares it with a per-environment baseline, imports GitLab and GitHub Actions CI runs, builds a ranked speed plan Claude applies one measured change at a time, sets up CI on every merge or pull request, measures release lead times, and writes a dashboard and a shareable report. Any stack that writes JUnit XML.",
+  "author": {
+    "name": "eng-kit contributors"
+  },
+  "license": "MIT",
+  "keywords": [
+    "ci",
+    "dashboard",
+    "github-actions",
+    "gitlab-ci",
+    "jest",
+    "junit",
+    "laravel",
+    "phpunit",
+    "pytest",
+    "self-hosted-runner",
+    "test-speed",
+    "testing",
+    "vitest"
+  ],
+  "homepage": "https://github.com/mahmoudissmail/eng-kit",
+  "repository": "https://github.com/mahmoudissmail/eng-kit"
+}

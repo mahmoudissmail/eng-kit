@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:">
+<title>Test speed — eng-kit</title>
+<style>
+:root{--bg:#fbfaf7;--panel:#fff;--fg:#1f1e1c;--muted:#6b6862;--line:#e6e2da;--accent:#c96442;--ok:#2f7d4f;--bad:#b3261e;--band:rgba(201,100,66,.12);
+--c0:#c96442;--c1:#3b6ea5;--c2:#2f7d4f;--c3:#8a5bb5;--c4:#b08900;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#1a1917;--panel:#23221f;--fg:#ece9e2;--muted:#a19d94;--line:#3a3833;--accent:#e08a6a;--ok:#6cc08d;--bad:#ef8a80;--band:rgba(224,138,106,.15);
+--c0:#e08a6a;--c1:#7aa6d8;--c2:#6cc08d;--c3:#b893de;--c4:#d9b84a;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:24px 16px 48px;display:grid;gap:16px}
+h1{font-size:24px;margin:0;font-weight:600}h2{font-size:16px;margin:0 0 4px;font-weight:600}
+.sub,.note{color:var(--muted);font-size:13px;margin:0}.note{margin-bottom:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.tiles{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.tile .k{color:var(--muted);font-size:12px}.tile .v{font-size:26px;font-weight:600;margin:4px 0;font-variant-numeric:tabular-nums}.tile .s{color:var(--muted);font-size:12px}
+.good{color:var(--ok)}.bad{color:var(--bad)}
+.grid2{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(420px,1fr))}
+.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th{text-align:left;color:var(--muted);font-weight:500;border-bottom:1px solid var(--line);padding:6px 8px;white-space:nowrap}
+td{border-bottom:1px solid var(--line);padding:6px 8px;vertical-align:top}td.n,th.n{text-align:right}
+.bar{height:8px;background:var(--accent);border-radius:4px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);margin-bottom:8px}.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+svg text{fill:var(--muted);font-size:11px}.chart{position:relative}.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.12);white-space:nowrap}
+select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+pre{white-space:pre-wrap;margin:0;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--fg)}
+.row{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.empty{color:var(--muted);padding:24px;text-align:center}
+footer{color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<main>
+  <header class="row">
+    <div><h1 id="title">Test speed</h1><p class="sub" id="meta"></p></div>
+    <label class="sub">Environment <select id="env"></select></label>
+  </header>
+  <section class="tiles" id="tiles"></section>
+  <section class="card"><h2>Full-suite time per run</h2><p class="note">Wall-clock minutes of each full, passed run. Dashed line: the baseline. Shaded band: the target, when set. Partial and failed runs are listed below but not drawn.</p><div class="legend" id="legend"></div><div class="chart" id="chart"></div></section>
+  <div class="grid2">
+    <section class="card"><h2>Slowest classes — latest against baseline</h2><p class="note">Summed test time per class in the latest full run, and the change from the baseline run.</p><div class="scroll"><table id="classes"></table></div></section>
+    <section class="card"><h2>Slowest tests — latest run</h2><p class="note">The single tests that cost the most time.</p><div class="scroll"><table id="tests"></table></div></section>
+  </div>
+  <div class="grid2">
+    <section class="card"><h2>How test time is spread — latest run</h2><p class="note">Number of tests by duration. A long right side means a few slow tests dominate.</p><div id="spread"></div></section>
+    <section class="card"><h2>Status note</h2><p class="note">.eng-kit/status.md in this project.</p><pre id="status"></pre></section>
+  </div>
+  <section class="card"><h2>Optimization plan</h2><p class="note" id="plannote">From /eng-kit:optimize (analyze). One change per merge request, each measured against the baseline.</p><div class="scroll"><table id="plan"></table></div></section>
+  <section class="card"><h2>Speed to release</h2><p class="note" id="relnote">From /eng-kit:release-speed: merge request opened → merged to staging, and → included in a release to production.</p><div class="scroll"><table id="release"></table></div></section>
+  <section class="card"><h2>All runs</h2><p class="note">Newest first. Change = 1 − run ÷ the baseline of the same environment (wall clock); runs in another environment are not compared.</p><div class="scroll"><table id="runs"></table></div></section>
+  <footer id="foot"></footer>
+</main>
+<script id="data" type="application/json">__ENGKIT_DATA__</script>
+<script>
+"use strict";
+const D = JSON.parse(document.getElementById("data").textContent);
+const $ = (id) => document.getElementById(id);
+const el = (tag, text, cls) => { const e = document.createElement(tag); if (text != null) e.textContent = String(text); if (cls) e.className = cls; return e; };
+const min = (s) => s == null ? "—" : (s / 60).toFixed(1);
+const pct = (f) => f == null ? "—" : `${Math.abs(Math.round(f * 100))}% ${f >= 0 ? "faster" : "slower"}`;
+const cls = (f) => f == null ? "" : f > 0.005 ? "good" : f < -0.005 ? "bad" : "";
+const day = (iso) => (iso || "").slice(0, 10);
+const runs = D.runs || [];
+const base = runs.find((r) => r.id === D.config.baseline_run_id) || null;
+const envs = [...new Set(runs.map((r) => r.environment || "unknown"))];
+const color = (env) => `var(--c${Math.max(0, envs.indexOf(env)) % 5})`;
+const envBase = (env) => (base && base.environment === env) ? base : runs.find((r) => r.environment === env && r.scope === "full" && r.passed && r.wall_seconds) || null;
+const change = (r) => { const b = envBase(r.environment); return (!b || b.id === r.id || !r.wall_seconds || !b.wall_seconds) ? null : 1 - r.wall_seconds / b.wall_seconds; };
+let envFilter = "all";
+
+function table(t, head, rows, numeric) {
+  t.replaceChildren();
+  const thead = el("thead"), tr = el("tr");
+  head.forEach((h, i) => tr.append(el("th", h, numeric.includes(i) ? "n" : "")));
+  thead.append(tr); t.append(thead);
+  const tb = el("tbody");
+  if (!rows.length) { const r = el("tr"); const c = el("td", "No data yet.", "empty"); c.colSpan = head.length; r.append(c); tb.append(r); }
+  rows.forEach((cells) => { const r = el("tr"); cells.forEach((c, i) => { const td = el("td", c && c.text != null ? c.text : c, numeric.includes(i) ? "n" : ""); if (c && c.cls) td.classList.add(c.cls); r.append(td); }); tb.append(r); });
+  t.append(tb);
+}
+
+function render() {
+  const view = runs.filter((r) => envFilter === "all" || r.environment === envFilter);
+  const full = view.filter((r) => r.scope === "full" && r.passed && r.wall_seconds);
+  const latest = full[full.length - 1] || null;
+  $("title").textContent = `Test speed — ${D.project}`;
+  $("meta").textContent = `${D.config.stack} · ${D.config.test_command || "no test command set"} · generated ${D.generated_at.replace("T", " ").replace("Z", " UTC")}`;
+
+  const tiles = $("tiles"); tiles.replaceChildren();
+  const tile = (k, v, s, c) => { const d = el("div", null, "card tile"); d.append(el("div", k, "k"), el("div", v, `v ${c || ""}`), el("div", s, "s")); tiles.append(d); };
+  tile("Latest full run", latest ? `${min(latest.wall_seconds)} min` : "—", latest ? `${day(latest.recorded_at)} · ${latest.environment}` : "no full passed run yet");
+  const lb0 = latest ? envBase(latest.environment) : base;
+  tile("Baseline (same environment)", lb0 ? `${min(lb0.wall_seconds)} min` : "—", lb0 ? `${day(lb0.recorded_at)} · ${lb0.environment}` : "first full passed run becomes the baseline");
+  const ch = latest ? change(latest) : null;
+  tile("Change against baseline", ch == null ? "—" : pct(ch), ch == null ? "needs a baseline and a newer run in the same environment" : `${(lb0.wall_seconds / latest.wall_seconds).toFixed(1)}× the speed`, cls(ch));
+  tile("Tests (latest)", latest ? latest.tests.toLocaleString() : "—", latest ? `${latest.skipped} skipped` : "");
+  const wpt = (r) => r && r.wall_seconds && r.tests ? r.wall_seconds / r.tests : null;
+  tile("Wall time per test", latest && wpt(latest) != null ? `${wpt(latest).toFixed(2)} s` : "—",
+    latest ? `${lb0 && wpt(lb0) != null && lb0.id !== latest.id ? `baseline ${wpt(lb0).toFixed(2)} s · ` : ""}summed over workers ${latest.seconds_per_test.toFixed(2)} s` : "wall clock ÷ tests");
+
+  drawChart(full);
+
+  const bb = lb0 && lb0.class_seconds ? lb0 : null;
+  table($("classes"), ["Class", "Tests", "Seconds", "Baseline s", "Change"],
+    (latest ? latest.slowest_classes : []).map((c) => {
+      const b = bb && bb.class_seconds[c.class];
+      const f = b ? 1 - c.seconds / b : null;
+      return [c.class, c.tests, c.seconds.toFixed(1), b == null ? "—" : b.toFixed(1), { text: f == null ? "—" : pct(f), cls: cls(f) }];
+    }), [1, 2, 3, 4]);
+  table($("tests"), ["Class", "Test", "Seconds"], (latest && latest.slowest_tests ? latest.slowest_tests : []).map((t) => [t.class, t.test, t.seconds.toFixed(2)]), [2]);
+
+  const sp = $("spread"); sp.replaceChildren();
+  if (latest && latest.spread) {
+    const max = Math.max(1, ...Object.values(latest.spread));
+    for (const [k, v] of Object.entries(latest.spread)) {
+      const row = el("div"); row.style.cssText = "display:grid;grid-template-columns:70px 1fr 60px;gap:8px;align-items:center;margin:6px 0";
+      const bar = el("div", null, "bar"); bar.style.width = `${(v / max) * 100}%`;
+      const track = el("div"); track.append(bar);
+      row.append(el("span", k, "sub"), track, el("span", v.toLocaleString(), "sub")); sp.append(row);
+    }
+  } else sp.append(el("div", "No full run yet.", "empty"));
+
+  $("status").textContent = D.status_md || "No status note yet.";
+  table($("runs"), ["Date", "Run", "Environment", "Source", "Scope", "Tests", "Result", "Minutes", "Change", "Commit", "Label"],
+    [...view].reverse().map((r) => {
+      const f = change(r);
+      return [day(r.recorded_at), r.id + (r.id === D.config.baseline_run_id ? " (baseline)" : ""), r.environment, r.source, r.scope, r.tests.toLocaleString(),
+        r.passed ? "passed" : `failed (${r.failures + r.errors})`, min(r.wall_seconds), { text: pct(f), cls: cls(f) }, (r.git && r.git.commit) || "", r.label || ""];
+    }), [5, 7, 8]);
+  const plan = D.plan || [];
+  $("plannote").textContent = plan.length ? `Generated ${(D.plan_generated_at || "").replace("T", " ").replace("Z", " UTC")}. One change per merge request, each measured against the baseline.` : "No plan yet: run /eng-kit:optimize.";
+  table($("plan"), ["#", "Change", "Gain", "Area", "State", "Expected", "Result"],
+    plan.map((f, i) => [i + 1, f.title, f.gain, f.area, { text: f.state, cls: f.state === "verified" ? "good" : "" }, f.expected || "", [f.note, f.run_id ? `run ${f.run_id}` : ""].filter(Boolean).join(" · ")]), [0]);
+  const rel = D.release, hrs = (v) => v == null ? "—" : v < 48 ? `${v.toFixed(1)} h` : `${(v / 24).toFixed(1)} d`;
+  if (rel) {
+    $("relnote").textContent = `Last ${rel.window_days} days, recorded ${day(rel.recorded_at)}: ${rel.merged_to_staging} merge requests into ${rel.staging_branch}, ${rel.releases} releases into ${rel.production_branch}.`;
+    const rows = [[`Code ready → ${rel.staging_branch}`, rel.code_to_staging.count, hrs(rel.code_to_staging.median_h), hrs(rel.code_to_staging.p75_h), hrs(rel.code_to_staging.p90_h)],
+      [`Code ready → ${rel.production_branch}`, rel.code_to_production.count, hrs(rel.code_to_production.median_h), hrs(rel.code_to_production.p75_h), hrs(rel.code_to_production.p90_h)]];
+    if (rel.deploy) rows.push([`Merged → deployed (${rel.deploy.environment}, ${rel.deploy.per_week}/week)`, rel.deploy.merge_to_deploy.count, hrs(rel.deploy.merge_to_deploy.median_h), hrs(rel.deploy.merge_to_deploy.p75_h), hrs(rel.deploy.merge_to_deploy.p90_h)]);
+    table($("release"), ["Step", "Changes", "Median", "p75", "p90"], rows, [1, 2, 3, 4]);
+  } else { $("relnote").textContent = "Not measured yet: run /eng-kit:release-speed."; table($("release"), ["Step", "Changes", "Median", "p75", "p90"], [], [1, 2, 3, 4]); }
+  $("foot").textContent = `eng-kit ${D.version} · local data in .eng-kit/ · nothing on this page is sent anywhere`;
+}
+
+function drawChart(full) {
+  const box = $("chart"); box.replaceChildren();
+  const legend = $("legend"); legend.replaceChildren();
+  [...new Set(full.map((r) => r.environment))].forEach((e) => { const s = el("span"); const i = el("i"); i.style.background = color(e); s.append(i, document.createTextNode(e)); legend.append(s); });
+  if (!full.length) { box.append(el("div", "Record a full run to see the trend.", "empty")); return; }
+  const W = Math.max(320, box.clientWidth || 800), H = 280, m = { t: 14, r: 18, b: 30, l: 44 };
+  const t = full.map((r) => Date.parse(r.recorded_at));
+  let t0 = Math.min(...t), t1 = Math.max(...t); if (t0 === t1) { t0 -= 864e5; t1 += 864e5; }
+  const tg = D.config.targets || {};
+  const ymax = Math.max(...full.map((r) => r.wall_seconds / 60), base ? base.wall_seconds / 60 : 0, tg.wall_minutes_high || 0) * 1.12 || 1;
+  const x = (v) => m.l + (v - t0) / (t1 - t0) * (W - m.l - m.r), y = (v) => H - m.b - v / ymax * (H - m.t - m.b);
+  const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", "100%"); svg.setAttribute("role", "img"); svg.setAttribute("aria-label", "Full-suite minutes per run");
+  const add = (tag, attrs, text) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (text != null) n.textContent = text; svg.append(n); return n; };
+  const step = Math.pow(10, Math.floor(Math.log10(ymax / 4))) * ([1, 2, 5].find((s) => ymax / 4 / Math.pow(10, Math.floor(Math.log10(ymax / 4))) <= s) || 10);
+  for (let v = 0; v <= ymax; v += step) { add("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: "var(--line)" }); add("text", { x: m.l - 6, y: y(v) + 4, "text-anchor": "end" }, +v.toFixed(1)); }
+  add("text", { x: 4, y: m.t + 4 }, "min");
+  if (tg.wall_minutes_low != null && tg.wall_minutes_high != null) add("rect", { x: m.l, width: W - m.l - m.r, y: y(tg.wall_minutes_high), height: Math.max(1, y(tg.wall_minutes_low) - y(tg.wall_minutes_high)), fill: "var(--band)" });
+  if (base && base.wall_seconds) { add("line", { x1: m.l, x2: W - m.r, y1: y(base.wall_seconds / 60), y2: y(base.wall_seconds / 60), stroke: "var(--muted)", "stroke-dasharray": "4 4" }); add("text", { x: W - m.r, y: y(base.wall_seconds / 60) - 5, "text-anchor": "end" }, `baseline ${min(base.wall_seconds)} min`); }
+  const ticks = Math.min(6, full.length);
+  for (let i = 0; i < ticks; i++) { const v = t0 + (t1 - t0) * (ticks === 1 ? 0.5 : i / (ticks - 1)); add("text", { x: x(v), y: H - 10, "text-anchor": "middle" }, new Date(v).toISOString().slice(5, 10)); }
+  for (const e of [...new Set(full.map((r) => r.environment))]) {
+    const pts = full.filter((r) => r.environment === e);
+    if (pts.length > 1) add("path", { d: pts.map((r, i) => `${i ? "L" : "M"}${x(Date.parse(r.recorded_at))},${y(r.wall_seconds / 60)}`).join(""), fill: "none", stroke: color(e), "stroke-width": 2 });
+  }
+  const tip = el("div", null, "tip"); tip.hidden = true;
+  for (const r of full) {
+    const c = add("circle", { cx: x(Date.parse(r.recorded_at)), cy: y(r.wall_seconds / 60), r: 5, fill: color(r.environment), stroke: "var(--panel)", "stroke-width": 1.5 });
+    c.addEventListener("pointerenter", () => { tip.replaceChildren(el("div", `${day(r.recorded_at)} · ${r.environment}`, "sub"), el("div", `${min(r.wall_seconds)} min · ${r.tests.toLocaleString()} tests`), el("div", `${r.id}${r.label ? " · " + r.label : ""}`, "sub")); tip.hidden = false;
+      const bx = box.getBoundingClientRect(), cb = c.getBoundingClientRect(); tip.style.left = `${Math.min(cb.left - bx.left + 10, bx.width - tip.offsetWidth - 4)}px`; tip.style.top = `${cb.top - bx.top - 54}px`; });
+    c.addEventListener("pointerleave", () => { tip.hidden = true; });
+  }
+  box.append(svg, tip);
+}
+
+const sel = $("env"); sel.append(new Option("All", "all")); envs.forEach((e) => sel.append(new Option(e, e)));
+sel.addEventListener("change", () => { envFilter = sel.value; render(); });
+let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(render, 150); });
+render();
+</script>
+</body>
+</html>
