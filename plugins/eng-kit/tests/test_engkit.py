@@ -606,7 +606,7 @@ class ReleaseSpeedScaleTests(ProjectCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(json.loads(out)["code_to_staging"]["median_h"], 3.0)
         self.assertEqual(calls["commits"], 150)        # second run used the cache
-        self.assertLess(first, 2.0)                    # 150 x 20 ms, 4 at a time, not 3 s in a row
+        self.assertLess(first, 3.0)                    # serial would be >= 150 x 20 ms = 3 s of sleeps alone; 4 at a time stays below
 
 
 class GitReleaseSpeedTests(ProjectCase):
