@@ -43,18 +43,18 @@ jobs:
       DB_USERNAME: root
       DB_PASSWORD: ""
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"
           extensions: pdo_mysql, intl, bcmath
           coverage: none                # no Xdebug: much faster
           ini-values: memory_limit=1G
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: vendor
           key: composer-${{ hashFiles('composer.lock') }}
@@ -69,7 +69,7 @@ jobs:
         run: |
           echo "Random order seed: ${{ github.run_id }}"
           php artisan test --parallel --recreate-databases --order-by=random --random-order-seed=${{ github.run_id }} --log-junit junit.xml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: junit                   # eng-kit import-ci reads this artifact

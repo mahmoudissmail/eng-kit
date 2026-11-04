@@ -188,6 +188,7 @@ def release_speed_git(root: Path, cfg: Dict[str, Any], days: int, staging: str, 
         "code_to_staging": _stats(to_staging), "mr_open_to_merge": None,
         "code_to_production": _stats(to_production), "not_released_yet": waiting, "deploy": None,
     }
+    engkit.refuse_symlink(engkit.kit(root) / "release.jsonl")
     with open(engkit.kit(root) / "release.jsonl", "a", encoding="utf-8") as handle:
         handle.write(json.dumps(snapshot, separators=(",", ":")) + "\n")
     if listing:
@@ -277,6 +278,7 @@ def release_speed(root: Path, days: int, staging: str, production: str, environm
         "not_released_yet": waiting,
         "deploy": deploy or None,
     }
+    engkit.refuse_symlink(engkit.kit(root) / "release.jsonl")
     with open(engkit.kit(root) / "release.jsonl", "a", encoding="utf-8") as handle:
         handle.write(json.dumps(snapshot, separators=(",", ":")) + "\n")
     if listing:

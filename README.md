@@ -16,7 +16,7 @@ testing standard and a speed playbook, so the code it writes keeps the suite fas
   .NET, RSpec, Rust.
 - **GitLab and GitHub.** Imports CI runs from GitLab jobs or GitHub Actions runs, measures release speed from
   any Git history, and `/eng-kit:setup-ci` gives CI templates and a runner guide for both.
-- **Production ready.** Standard-library Python, 53 automated tests, validated with
+- **Production ready.** Standard-library Python, 58 automated tests, validated with
   `claude plugin validate --strict`, fast hooks (about 25 ms per Bash call).
 
 ---
@@ -369,7 +369,7 @@ One HTML file per project, `.eng-kit/dashboard.html`, rebuilt by `/eng-kit:dashb
 | `baseline_run_id` | first full passed run | See [How runs are compared](#how-runs-are-compared) |
 | `targets.wall_minutes_low` / `_high` | `null` | Draws a target band on the chart |
 | `hook.enabled` | `true` | Automatic recording on or off |
-| `ci.host` | `https://gitlab.com` | GitLab host |
+| `ci.host` | `https://gitlab.com` | Self-hosted GitLab or GitHub Enterprise; also add the host to `~/.config/eng-kit/trusted-hosts` (or `ENGKIT_TRUSTED_HOSTS`) |
 | `ci.project` | from the remote | `group/name` |
 | `ci.token_env` | `GITLAB_TOKEN` | Environment variable holding the token |
 | `ci.token_file`, `ci.token_key` | `null`, `GITLAB_TOKEN` | Optional file holding `KEY=value` |

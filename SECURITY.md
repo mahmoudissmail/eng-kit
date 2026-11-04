@@ -17,6 +17,14 @@
   you point to. It is never written to `.eng-kit/`, printed, or passed on a command line.
 - Use a token with the `read_api` scope only.
 
+## Token safety
+
+- Tokens go only to trusted hosts: the public GitLab and GitHub, plus hosts you add yourself in
+  `ENGKIT_TRUSTED_HOSTS` (comma-separated) or `~/.config/eng-kit/trusted-hosts` (one per line). A cloned project's
+  `.eng-kit/config.json` cannot add hosts, and only `https` is used.
+- eng-kit trusts only local data it created: a `.eng-kit/config.json` committed to a repository is refused, links
+  inside `.eng-kit/` are refused, and the hook never looks above the repository root.
+
 ## Reporting a problem
 
 Please report security issues privately to the maintainers through GitHub's

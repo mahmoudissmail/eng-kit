@@ -36,7 +36,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 KIT_DIR = ".eng-kit"
 SCHEMA = 1
 TOP = 15
@@ -206,10 +206,52 @@ def default_config(root: Path) -> Dict[str, Any]:
     }
 
 
+DEFAULT_TRUSTED_HOSTS = ("gitlab.com", "github.com", "api.github.com")
+
+
+def trusted_hosts() -> List[str]:
+    """Hosts a token may be sent to: the public GitLab and GitHub, plus hosts the person lists themself in
+    ENGKIT_TRUSTED_HOSTS (comma-separated) or ~/.config/eng-kit/trusted-hosts (one per line). Never project config."""
+    hosts = list(DEFAULT_TRUSTED_HOSTS)
+    hosts += [h.strip().lower() for h in os.environ.get("ENGKIT_TRUSTED_HOSTS", "").split(",") if h.strip()]
+    user_file = Path(os.path.expanduser("~/.config/eng-kit/trusted-hosts"))
+    with contextlib.suppress(OSError):
+        hosts += [l.strip().lower() for l in user_file.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
+    return hosts
+
+
+def check_host(url: str) -> None:
+    import urllib.parse
+
+    parsed = urllib.parse.urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or host not in trusted_hosts():
+        fail(f"refusing to send a token to {parsed.scheme}://{host}: it is not a trusted host. If you trust it, add "
+             f"'{host}' to ~/.config/eng-kit/trusted-hosts (a project's own config cannot add hosts).")
+
+
+def refuse_symlink(path: Path) -> None:
+    """eng-kit appends to files in .eng-kit/; a symlink there could redirect those writes, so it is refused."""
+    if path.is_symlink() or path.parent.is_symlink():
+        fail(f"{path} is a symbolic link; eng-kit does not write through links. Remove it and run init again.")
+
+
+def _tracked_in_git(root: Path, rel: str) -> bool:
+    try:
+        return subprocess.run(["git", "ls-files", "--error-unmatch", rel], cwd=root, capture_output=True, timeout=5).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def load_config(root: Path) -> Dict[str, Any]:
     path = kit(root) / "config.json"
+    if kit(root).is_symlink() or path.is_symlink():
+        fail(f"{kit(root)} or its config is a symbolic link; eng-kit only uses a real local folder. Remove it and run init.")
     if not path.is_file():
         fail("this project is not set up yet. Run: init")
+    if _tracked_in_git(root, f"{KIT_DIR}/config.json"):
+        fail(f"{KIT_DIR}/config.json is committed to this repository. eng-kit only trusts local data it created itself: "
+             f"remove {KIT_DIR}/ from the repository (git rm -r --cached {KIT_DIR}) and run init.")
     cfg = _read_json(path)
     if cfg.get("schema") != SCHEMA:
         fail(f"{path} has schema {cfg.get('schema')!r}; this version reads schema {SCHEMA}.")
@@ -509,6 +551,7 @@ def record(
             "ci": ci or None,
             **summary,
         }
+        refuse_symlink(runs_path(root))
         with open(runs_path(root), "a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry, separators=(",", ":")) + "\n")
         if not cfg.get("baseline_run_id") and entry["scope"] == "full" and entry["passed"] and entry["wall_seconds"]:
@@ -652,6 +695,7 @@ def _api(host: str, project: str, path: str, token: str) -> Any:
     import urllib.request
 
     url = f"{host.rstrip('/')}/api/v4/projects/{urllib.parse.quote(project, safe='')}{path}"
+    check_host(url)
     request = urllib.request.Request(url, headers={"PRIVATE-TOKEN": token, "User-Agent": f"eng-kit/{VERSION}"})
     for attempt in range(5):
         try:
@@ -889,8 +933,11 @@ def hook_cmd(phase: str, payload: Optional[Dict[str, Any]] = None) -> int:
     folder = None
     for candidate in [start, *start.parents]:
         if (candidate / KIT_DIR / "config.json").is_file():
-            folder = candidate
+            if not (candidate / KIT_DIR).is_symlink():
+                folder = candidate
             break
+        if (candidate / ".git").exists():
+            break  # stop at the repository root
     if folder is None:
         return 0
     try:
@@ -938,7 +985,8 @@ def hook_cmd(phase: str, payload: Optional[Dict[str, Any]] = None) -> int:
         return 0
     except Exception as exc:  # pragma: no cover - defensive: a hook must never break the session
         with contextlib.suppress(OSError):
-            with open(kit(folder) / "hook-errors.log", "a", encoding="utf-8") as log:
+            if not (kit(folder) / "hook-errors.log").is_symlink():
+              with open(kit(folder) / "hook-errors.log", "a", encoding="utf-8") as log:
                 log.write(f"{now_iso()} {phase}: {type(exc).__name__}: {exc}\n")
     return 0
 

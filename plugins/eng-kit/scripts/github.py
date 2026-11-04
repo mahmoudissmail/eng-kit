@@ -39,6 +39,7 @@ def _get(url: str, token: str, raw: bool = False) -> Any:
     import urllib.error
     import urllib.request
 
+    engkit.check_host(url)
     request = urllib.request.Request(url, headers={
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
@@ -75,6 +76,7 @@ def _download(url: str, token: str) -> bytes:
         def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D401 - urllib hook
             return None
 
+    engkit.check_host(url)
     opener = urllib.request.build_opener(_NoRedirect)
     request = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
                                                    "X-GitHub-Api-Version": "2022-11-28", "User-Agent": f"eng-kit/{engkit.VERSION}"})

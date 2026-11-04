@@ -3,6 +3,19 @@
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-11-04
+
+### Security
+- A token is only ever sent to `https://gitlab.com`, `https://github.com` / `api.github.com`, or a host the person
+  lists in `ENGKIT_TRUSTED_HOSTS` or `~/.config/eng-kit/trusted-hosts`. A project's own config can no longer point
+  the token at another host.
+- eng-kit refuses to write through symbolic links in `.eng-kit/`, and refuses a `.eng-kit/config.json` that is
+  committed to the repository.
+- The automatic-recording hook stops at the repository root and never uses a parent folder's `.eng-kit/`.
+
+### Changed
+- CI actions updated to their current major versions; the release-speed scale test allows 3 s on slower runners.
+
 ## [1.0.0] - 2026-11-04
 
 ### Added

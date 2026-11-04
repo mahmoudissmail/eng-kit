@@ -50,8 +50,13 @@ def main() -> int:
         return 0
     folder = os.path.abspath(start)
     while True:
-        if os.path.isfile(os.path.join(folder, ".eng-kit", "config.json")):
+        candidate = os.path.join(folder, ".eng-kit")
+        if os.path.isfile(os.path.join(candidate, "config.json")):
+            if os.path.islink(candidate) or os.path.islink(os.path.join(candidate, "config.json")):
+                return 0  # never follow links into data folders
             break
+        if os.path.exists(os.path.join(folder, ".git")):
+            return 0  # stop at the repository root: never use a parent folder's .eng-kit
         parent = os.path.dirname(folder)
         if parent == folder:
             return 0

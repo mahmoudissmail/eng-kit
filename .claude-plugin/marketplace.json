@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Claude Code plugins for faster, measured test suites.",
-    "version": "1.0.0"
+    "version": "1.0.1"
   },
   "plugins": [
     {
       "name": "eng-kit",
       "source": "./plugins/eng-kit",
       "description": "Local, per-project test-speed tracking and optimization: automatic run recording, per-environment baselines, GitLab and GitHub CI import, a ranked speed plan applied one measured change at a time, CI setup for both hosts, release lead times, dashboard and shareable report. Any stack that writes JUnit XML.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "testing"
     }
   ]

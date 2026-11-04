@@ -606,7 +606,7 @@ class ReleaseSpeedScaleTests(ProjectCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(json.loads(out)["code_to_staging"]["median_h"], 3.0)
         self.assertEqual(calls["commits"], 150)        # second run used the cache
-        self.assertLess(first, 3.0)                    # serial would be >= 150 x 20 ms = 3 s of sleeps alone; 4 at a time stays below
+        self.assertLess(first, 3.0)                    # 150 x 20 ms, 4 at a time, not 3 s in a row
 
 
 class GitReleaseSpeedTests(ProjectCase):
@@ -874,3 +874,52 @@ class ProviderDetectionTests(ProjectCase):
         self.assertEqual(engkit.ci_provider(root, cfg, "https://gitlab.com/a/b/-/jobs/1"), "gitlab")
         run("--project", str(root), "config", "set", "ci.provider", "gitlab")
         self.assertEqual(engkit.ci_provider(root, engkit.load_config(root)), "gitlab")
+
+
+class SecurityTests(ProjectCase):
+    def test_token_is_never_sent_to_a_host_the_project_config_names(self) -> None:
+        root = self.init()
+        run("--project", str(root), "config", "set", "ci.project", "acme/shop")
+        run("--project", str(root), "config", "set", "ci.host", "https://evil.example")
+        called = []
+        with mock.patch.dict(os.environ, {"GITLAB_TOKEN": "glpat-SECRET", "ENGKIT_TRUSTED_HOSTS": ""}), \
+                mock.patch("urllib.request.urlopen", lambda *a, **k: called.append(a) or _resp({})):
+            code, _, err = run("--project", str(root), "import-ci", "12")
+        self.assertEqual(code, 2)
+        self.assertIn("not a trusted host", err)
+        self.assertEqual(called, [])
+
+    def test_a_host_the_person_trusts_is_allowed(self) -> None:
+        with mock.patch.dict(os.environ, {"ENGKIT_TRUSTED_HOSTS": "gitlab.example.com"}):
+            engkit.check_host("https://gitlab.example.com/api/v4/projects/x")
+            with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+                engkit.check_host("http://gitlab.example.com/api/v4/projects/x")   # never over plain http
+
+    def test_writes_never_follow_a_symlink(self) -> None:
+        root = self.init()
+        target = self.tmp / "outside.txt"
+        target.write_text("keep\n")
+        (root / ".eng-kit/runs.jsonl").unlink()
+        os.symlink(target, root / ".eng-kit/runs.jsonl")
+        code, _, err = run("--project", str(root), "record", str(FIX / "jest-junit.xml"), "--wall-seconds", "5")
+        self.assertEqual(code, 2)
+        self.assertIn("symbolic link", err)
+        self.assertEqual(target.read_text(), "keep\n")
+
+    def test_config_committed_to_the_repository_is_refused(self) -> None:
+        root = self.init()
+        subprocess.run(["git", "add", "-f", ".eng-kit/config.json"], cwd=root, check=True)
+        code, _, err = run("--project", str(root), "status")
+        self.assertEqual(code, 2)
+        self.assertIn("committed to this repository", err)
+
+    def test_hook_does_not_use_a_parent_folders_data(self) -> None:
+        parent = self.init()
+        child = parent / "vendor-repo"
+        child.mkdir()
+        subprocess.run(["git", "init", "-q", str(child)], check=True)
+        (parent / ".eng-kit/junit.xml").write_text((FIX / "jest-junit.xml").read_text())
+        body = json.dumps({"cwd": str(child), "tool_name": "Bash", "tool_use_id": "x", "tool_input": {"command": "npx vitest run"}})
+        subprocess.run([sys.executable, str(SCRIPTS / "hook.py"), "pre"], input=body, text=True, check=True)
+        subprocess.run([sys.executable, str(SCRIPTS / "hook.py"), "post"], input=body, text=True, check=True)
+        self.assertEqual(engkit.read_runs(parent), [])
